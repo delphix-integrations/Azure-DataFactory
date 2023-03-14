@@ -33,6 +33,17 @@
         "Profiling",
         "Compliance"
     ],
-    "services": ["Azure SQL Database", "Azure Storage", "Azure Synapse", "Logic App", "Delphix DevOps Data Platform for Azure"],
-    "categories": ["Profiling", "Compliance", "Sensitive Data Discovery", "Azure Pipeline"]
+    "services": [
+        "Azure SQL Database",
+        "Azure Storage",
+        "Azure Synapse",
+        "Logic App",
+        "Delphix DevOps Data Platform for Azure"
+    ],
+    "categories": [
+        "Profiling",
+        "Compliance",
+        "Sensitive Data Discovery",
+        "Azure Pipeline"
+    ]
 }
