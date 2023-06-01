@@ -1,0 +1,690 @@
+{
+	"name": "demo_pipeline_copy1",
+	"properties": {
+		"activities": [
+			{
+				"name": "ForEach1",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get Metadata2",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get Metadata2').output.childItems",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "If Condition1",
+							"type": "IfCondition",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@activity('Get List of all Schema files in Blob Storage').output.exists",
+									"type": "Expression"
+								},
+								"ifFalseActivities": [
+									{
+										"name": "Copy data1",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "DelimitedTextSource",
+												"storeSettings": {
+													"type": "AzureBlobStorageReadSettings",
+													"recursive": true,
+													"enablePartitionDiscovery": false
+												},
+												"formatSettings": {
+													"type": "DelimitedTextReadSettings"
+												}
+											},
+											"sink": {
+												"type": "DelimitedTextSink",
+												"storeSettings": {
+													"type": "AzureBlobStorageWriteSettings"
+												},
+												"formatSettings": {
+													"type": "DelimitedTextWriteSettings",
+													"quoteAllText": true,
+													"fileExtension": ".txt"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "connect_to_source_schema",
+												"type": "DatasetReference",
+												"parameters": {
+													"Filename": "@item().name"
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "connect_to_hubsdevelopment_storage",
+												"type": "DatasetReference",
+												"parameters": {
+													"Filename": "@item().name"
+												}
+											}
+										]
+									}
+								]
+							}
+						},
+						{
+							"name": "Data flow1",
+							"type": "ExecuteDataFlow",
+							"dependsOn": [
+								{
+									"activity": "If Condition1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataflow": {
+									"referenceName": "dataflow_to_retrieve_schema",
+									"type": "DataFlowReference",
+									"datasetParameters": {
+										"input": {
+											"Filename": "@item().name"
+										},
+										"Target": {
+											"Filename": "@item().name"
+										}
+									}
+								},
+								"compute": {
+									"coreCount": 8,
+									"computeType": "General"
+								},
+								"traceLevel": "Fine"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Get Metadata2",
+				"type": "GetMetadata",
+				"dependsOn": [
+					{
+						"activity": "Get List of all Schema files in Blob Storage",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "getmetada_of_source_container",
+						"type": "DatasetReference"
+					},
+					"fieldList": [
+						"childItems"
+					],
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "DelimitedTextReadSettings"
+					}
+				}
+			},
+			{
+				"name": "Get List of all Schema files in Blob Storage",
+				"type": "GetMetadata",
+				"dependsOn": [
+					{
+						"activity": "SourceToBlobStore",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "Connect_to_storage",
+						"type": "DatasetReference"
+					},
+					"fieldList": [
+						"exists"
+					],
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "DelimitedTextReadSettings"
+					}
+				}
+			},
+			{
+				"name": "Iterator to get index used in loop",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "ForEach1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "AzureBlobStorageReadSettings",
+							"recursive": true,
+							"wildcardFileName": "*.csv",
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"dataset": {
+						"referenceName": "SchemaFile",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Delphix Login",
+				"description": "API login to Delphix Compliance Engine",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "ForEach1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": "http://40.83.7.43/masking/api/v5.1.11/login",
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					},
+					"body": {
+						"username": "admin",
+						"password": "Admin-12"
+					}
+				}
+			},
+			{
+				"name": "ForEach loop to upload list of files",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Delphix Login",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Iterator to get index used in loop",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@range(1, activity('Iterator to get index used in loop').output.count)",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "fileFormatsGET",
+							"type": "WebActivity",
+							"dependsOn": [
+								{
+									"activity": "POST fileFormat using LogicApp",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"url": "http://40.83.7.43/masking/api/v5.1.11/file-formats",
+								"method": "GET",
+								"headers": {
+									"Accept": "application/json",
+									"Authorization": {
+										"value": "@activity('Delphix Login').output.Authorization",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Get File Path",
+							"type": "GetMetadata",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "SchemaFile",
+									"type": "DatasetReference"
+								},
+								"fieldList": [
+									"childItems",
+									"itemName",
+									"itemType"
+								],
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							}
+						},
+						{
+							"name": "POST fileFormat using LogicApp",
+							"type": "WebActivity",
+							"dependsOn": [
+								{
+									"activity": "Sanitize Content Body",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "AppendFileName with PipelineID",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"url": "https://prod-00.centralus.logic.azure.com:443/workflows/91cfc36bbb0a47818b0f10fcb5e7a49b/triggers/manual/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=NAfS5HY2bBmloCdccl62BmiECLBRi9Z_W25C-AYr-zI",
+								"method": "POST",
+								"body": {
+									"value": "{\n    \"Authorization\": \"@{activity('Delphix Login').output.Authorization}\",\n    \"fileFormat\" : \"@{variables('SanitizedString')}\",\n    \"fileFormatType\" : \"DELIMITED\",\n    \"fileName\": \"@{variables('FileNamewithPipelineId')}\"\n}",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "FileName",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Get File Path",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "FileName",
+								"value": {
+									"value": "@activity('Get File Path').output.childItems[sub(item(),1)].name",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Get Contents of Schema File",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "DelimitedTextSource",
+									"storeSettings": {
+										"type": "AzureBlobStorageReadSettings",
+										"recursive": true,
+										"wildcardFileName": "*.csv",
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "DelimitedTextReadSettings"
+									}
+								},
+								"dataset": {
+									"referenceName": "SchemaFile",
+									"type": "DatasetReference"
+								},
+								"firstRowOnly": false
+							}
+						},
+						{
+							"name": "Base64EncodedBody",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Get Contents of Schema File",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "ContentBody",
+								"value": {
+									"value": "@base64(activity('Get Contents of Schema File').output.value[sub(item(),1)].Prop_0)",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Sanitize Content Body",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Base64EncodedBody",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "SanitizedString",
+								"value": {
+									"value": "@replace(variables('ContentBody'),'=','')",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Get Pipeline ID",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "PipelineId",
+								"value": {
+									"value": "@split(pipeline().RunId, '-')[0]",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "AppendFileName with PipelineID",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "FileName",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Get Pipeline ID",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "FileNamewithPipelineId",
+								"value": {
+									"value": "@concat(variables('PipelineId'),variables('FileName'))",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "tableLookup",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "@pipeline().parameters.QueryToGetTableSchema",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "GetUnmaskedDataFromSource",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableName": "@item().name"
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "SourceToBlobStore",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "tableLookup",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('tableLookup').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "SQLToBlob",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderQuery": {
+										"value": "SELECT * FROM dbo.[@{item().TABLE_NAME}] LIMIT 1",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "DelimitedTextSink",
+									"storeSettings": {
+										"type": "AzureBlobStorageWriteSettings"
+									},
+									"formatSettings": {
+										"type": "DelimitedTextWriteSettings",
+										"quoteAllText": true,
+										"fileExtension": ".txt"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "GetUnmaskedDataFromSource",
+									"type": "DatasetReference",
+									"parameters": {
+										"TableName": "@item().name"
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "DelimitedText1",
+									"type": "DatasetReference",
+									"parameters": {
+										"FileName": "@{item().TABLE_NAME}.csv"
+									}
+								}
+							]
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"QueryToGetTableSchema": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"ContentBody": {
+				"type": "String"
+			},
+			"SanitizedString": {
+				"type": "String"
+			},
+			"FileName": {
+				"type": "String"
+			},
+			"PipelineId": {
+				"type": "String"
+			},
+			"FileNamewithPipelineId": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "Integrated"
+		},
+		"annotations": [],
+		"lastPublishTime": "2022-09-19T10:44:54Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

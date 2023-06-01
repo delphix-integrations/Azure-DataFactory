@@ -1,0 +1,52 @@
+{
+	"name": "Copy_Data_To_Synapse",
+	"properties": {
+		"folder": {
+			"name": "Kishlay"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "TargetMaskedFilesConnection",
+						"type": "DatasetReference"
+					},
+					"name": "GetMaskedDataFromBlob"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "TargetTablesConnection",
+						"type": "DatasetReference"
+					},
+					"name": "WriteDataToTarget"
+				}
+			],
+			"transformations": [],
+			"scriptLines": [
+				"source(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> GetMaskedDataFromBlob",
+				"GetMaskedDataFromBlob sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          NAME as string,",
+				"          LAST_NAME as string,",
+				"          AGE as string,",
+				"          GENDER as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     staged: false,",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> WriteDataToTarget"
+			]
+		}
+	}
+}

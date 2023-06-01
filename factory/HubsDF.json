@@ -1,0 +1,9 @@
+{
+	"name": "HubsDF",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "6ba4e40c-3345-47a2-94bf-fc0ebf551936",
+		"tenantId": "a2d78d4c-301e-46f0-9bf6-4c2274104a56"
+	}
+}

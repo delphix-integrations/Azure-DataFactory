@@ -1,0 +1,41 @@
+{
+	"name": "testData",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "Connect_to_hubs_testing",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"fileName": "ADDRESS.csv",
+				"container": "maskeddata"
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": "\""
+		},
+		"schema": [
+			{
+				"name": "Gandhi Street",
+				"type": "String"
+			},
+			{
+				"name": "Pune",
+				"type": "String"
+			},
+			{
+				"name": "411057",
+				"type": "String"
+			},
+			{
+				"name": "India",
+				"type": "String"
+			}
+		]
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

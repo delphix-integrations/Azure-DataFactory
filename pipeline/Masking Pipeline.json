@@ -1,0 +1,426 @@
+{
+	"name": "Masking Pipeline",
+	"properties": {
+		"activities": [
+			{
+				"name": "Delphix Login",
+				"description": "API login to Delphix Compliance Engine",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "iterator to loop over all tables",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.maskingengineip,'/masking/api/v5.1.11/login')",
+						"type": "Expression"
+					},
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					},
+					"body": {
+						"value": "{\"username\":\"@{pipeline().parameters.username}\",\"password\":\"@{pipeline().parameters.password}\"}",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Iterate over Job Ids",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Delphix Login",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@pipeline().parameters.joblist",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"activities": [
+						{
+							"name": "Trigger masking job in parallel",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Invoke atomic masking job",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"job": {
+										"value": "@item()",
+										"type": "Expression"
+									},
+									"authkey": {
+										"value": "@activity('Delphix Login').output.Authorization",
+										"type": "Expression"
+									},
+									"maskingengineip": {
+										"value": "@pipeline().parameters.maskingengineip",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Some or one job failed",
+				"type": "Fail",
+				"dependsOn": [
+					{
+						"activity": "Iterate over Job Ids",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"message": "Some or one job failed",
+					"errorCode": "1"
+				}
+			},
+			{
+				"name": "Fetch Table Name",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "@pipeline().parameters.QueryToFetchTables",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "GetSourceDBTableNames",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "iterator to loop over all tables",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Fetch Table Name",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Fetch Table Name').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Copies data from table to csv file",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderQuery": {
+										"value": "SELECT * FROM [@{item().TABLE_SCHEMA}].[@{item().TABLE_NAME}];",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "DelimitedTextSink",
+									"storeSettings": {
+										"type": "AzureFileStorageWriteSettings"
+									},
+									"formatSettings": {
+										"type": "DelimitedTextWriteSettings",
+										"quoteAllText": true,
+										"fileExtension": ".txt"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "GetUnmaskedDataFromSource",
+									"type": "DatasetReference",
+									"parameters": {
+										"TableName": "@item().TABLE_NAME"
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "FileShareFilesConnection",
+									"type": "DatasetReference",
+									"parameters": {
+										"FileName": "@{item().TABLE_SCHEMA}.@{item().TABLE_NAME}.csv",
+										"FolderName": "source"
+									}
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				"name": "Copies data from fileshare to blob",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Iterate over Job Ids",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "AzureFileStorageReadSettings",
+							"recursive": true,
+							"wildcardFolderPath": "Target",
+							"wildcardFileName": "*",
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"sink": {
+						"type": "DelimitedTextSink",
+						"storeSettings": {
+							"type": "AzureBlobStorageWriteSettings"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextWriteSettings",
+							"quoteAllText": true,
+							"fileExtension": ".txt"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "FileShareConnection",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "TargetBlobStorageConnection",
+						"type": "DatasetReference"
+					}
+				]
+			},
+			{
+				"name": "Fetch file list from blob",
+				"type": "GetMetadata",
+				"dependsOn": [
+					{
+						"activity": "Copies data from fileshare to blob",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "TargetBlobStorageConnection",
+						"type": "DatasetReference"
+					},
+					"fieldList": [
+						"childItems"
+					],
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "DelimitedTextReadSettings"
+					}
+				}
+			},
+			{
+				"name": "Iterate over blob files",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Fetch file list from blob",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Fetch file list from blob').output.childItems",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Copy data from blob to synapse",
+							"type": "ExecuteDataFlow",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataflow": {
+									"referenceName": "Copy_Data_To_Synapse",
+									"type": "DataFlowReference",
+									"datasetParameters": {
+										"GetMaskedDataFromBlob": {
+											"Filename": "@item().name"
+										},
+										"WriteDataToTarget": {
+											"tableName": "@item().name",
+											"schemaName": {
+												"value": "@pipeline().parameters.TargetSchemaName",
+												"type": "Expression"
+											}
+										}
+									}
+								},
+								"compute": {
+									"coreCount": 8,
+									"computeType": "General"
+								},
+								"traceLevel": "Fine"
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"joblist": {
+				"type": "array",
+				"defaultValue": [
+					23
+				]
+			},
+			"username": {
+				"type": "string",
+				"defaultValue": "admin"
+			},
+			"password": {
+				"type": "string"
+			},
+			"maskingengineip": {
+				"type": "string",
+				"defaultValue": "40.83.7.43"
+			},
+			"QueryToFetchTables": {
+				"type": "string",
+				"defaultValue": "SELECT TABLE_SCHEMA,TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'dbo'"
+			},
+			"TargetSchemaName": {
+				"type": "string",
+				"defaultValue": "dbo"
+			}
+		},
+		"variables": {
+			"result": {
+				"type": "String"
+			},
+			"status": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "Final Pipeline - 16th Sep 2022"
+		},
+		"annotations": [
+			"Delphix"
+		],
+		"lastPublishTime": "2022-09-20T07:06:13Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

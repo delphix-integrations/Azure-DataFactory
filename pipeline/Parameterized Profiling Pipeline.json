@@ -1,0 +1,374 @@
+{
+	"name": "Parameterized Profiling Pipeline",
+	"properties": {
+		"activities": [
+			{
+				"name": "Iterator to get index used in loop",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "AzureFileStorageReadSettings",
+							"recursive": true,
+							"wildcardFileName": "*.csv",
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"dataset": {
+						"referenceName": "FileShareConnection",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ForEach loop to upload list of files",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Iterator to get index used in loop",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Delphix Login",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@range(1, activity('Iterator to get index used in loop').output.count)",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "fileFormatsGET",
+							"type": "WebActivity",
+							"dependsOn": [
+								{
+									"activity": "POST fileFormat using LogicApp",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"url": {
+									"value": "@concat('http://',pipeline().parameters.maskingengineip,'/masking/api/v5.1.11/file-formats')",
+									"type": "Expression"
+								},
+								"method": "GET",
+								"headers": {
+									"Accept": "application/json",
+									"Authorization": {
+										"value": "@activity('Delphix Login').output.Authorization",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Get File Path",
+							"type": "GetMetadata",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "connect_to_hubsdevelopment_storage",
+									"type": "DatasetReference",
+									"parameters": {
+										"Filename": "@item().name"
+									}
+								},
+								"fieldList": [
+									"childItems",
+									"itemType",
+									"itemName"
+								],
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							}
+						},
+						{
+							"name": "POST fileFormat using LogicApp",
+							"type": "WebActivity",
+							"dependsOn": [
+								{
+									"activity": "AppendFileName with PipelineID",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Get Content Body for individual file",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"url": {
+									"value": "@pipeline().parameters.logicappurl",
+									"type": "Expression"
+								},
+								"method": "POST",
+								"body": {
+									"value": "{\n    \"Authorization\": \"@{activity('Delphix Login').output.Authorization}\",\n    \"fileFormat\" : \"@{variables('FileContents')}\",\n    \"fileFormatType\" : \"DELIMITED\",\n    \"fileName\": \"@{variables('FileNamewithPipelineId')}\",\n    \"maskingEngineIp\":\"@{pipeline().parameters.maskingengineip}\"\n}",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "FileName",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Get File Path",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "FileName",
+								"value": {
+									"value": "@activity('Get File Path').output.childItems[sub(item(),1)].name",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Get Contents of Schema File",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "GetUnmaskedDataFromSource",
+									"type": "DatasetReference",
+									"parameters": {
+										"TableName": "@item().name"
+									}
+								},
+								"firstRowOnly": false
+							}
+						},
+						{
+							"name": "Get Pipeline ID",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "PipelineId",
+								"value": {
+									"value": "@split(pipeline().RunId, '-')[0]",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "AppendFileName with PipelineID",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Get Pipeline ID",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "FileName",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "FileNamewithPipelineId",
+								"value": {
+									"value": "@concat(variables('FileName'),'_',variables('PipelineId'))",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Get Content Body for individual file",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Get Contents of Schema File",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "FileContents",
+								"value": {
+									"value": "@activity('Get Contents of Schema File').output.value[sub(item(),1)].Prop_0",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Delphix Login",
+				"description": "API login to Delphix Compliance Engine",
+				"type": "WebActivity",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.maskingengineip,'/masking/api/v5.1.11/login')",
+						"type": "Expression"
+					},
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					},
+					"body": {
+						"value": "{\"username\":\"@{pipeline().parameters.username}\",\"password\":\"@{pipeline().parameters.password}\"}",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"username": {
+				"type": "string"
+			},
+			"password": {
+				"type": "string"
+			},
+			"maskingengineip": {
+				"type": "string"
+			},
+			"logicappurl": {
+				"type": "string",
+				"defaultValue": "https://prod-00.centralus.logic.azure.com:443/workflows/91cfc36bbb0a47818b0f10fcb5e7a49b/triggers/manual/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=NAfS5HY2bBmloCdccl62BmiECLBRi9Z_W25C-AYr-zI"
+			}
+		},
+		"variables": {
+			"FileName": {
+				"type": "String"
+			},
+			"ContentBody": {
+				"type": "String"
+			},
+			"FileContents": {
+				"type": "String"
+			},
+			"test": {
+				"type": "String"
+			},
+			"looper": {
+				"type": "String"
+			},
+			"loopoutput": {
+				"type": "Array"
+			},
+			"FileContent": {
+				"type": "Array"
+			},
+			"NameAndContent": {
+				"type": "Array"
+			},
+			"appendfilename": {
+				"type": "Array"
+			},
+			"Testcount": {
+				"type": "String"
+			},
+			"LoopAuth": {
+				"type": "String"
+			},
+			"PipelineId": {
+				"type": "String"
+			},
+			"FileNamewithPipelineId": {
+				"type": "String"
+			},
+			"final status": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "HUBS-Test-Uddi"
+		},
+		"annotations": [],
+		"lastPublishTime": "2022-09-17T09:16:48Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

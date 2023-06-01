@@ -1,0 +1,34 @@
+{
+	"name": "ConnectToSourceDatabase",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabaseSource",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "Street",
+				"type": "varchar"
+			},
+			{
+				"name": "city",
+				"type": "varchar"
+			},
+			{
+				"name": "Zip",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "Country",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": ""
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

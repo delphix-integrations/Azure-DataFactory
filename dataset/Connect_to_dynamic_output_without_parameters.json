@@ -1,0 +1,27 @@
+{
+	"name": "Connect_to_dynamic_output_without_parameters",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "Connect_to_dynamic_output_without_parameters",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"container": "dynamicoutput"
+			},
+			"columnDelimiter": "|",
+			"rowDelimiter": "|",
+			"escapeChar": "\\",
+			"quoteChar": "\""
+		},
+		"schema": [
+			{
+				"type": "String"
+			}
+		]
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

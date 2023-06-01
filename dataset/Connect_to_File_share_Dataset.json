@@ -1,0 +1,37 @@
+{
+	"name": "Connect_to_File_share_Dataset",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "File Share Linked Service",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"DirectoryName": {
+				"type": "string"
+			},
+			"FileName": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureFileStorageLocation",
+				"fileName": {
+					"value": "@dataset().FileName",
+					"type": "Expression"
+				},
+				"folderPath": {
+					"value": "@dataset().DirectoryName",
+					"type": "Expression"
+				}
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"quoteChar": "\""
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

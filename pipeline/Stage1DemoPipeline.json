@@ -1,0 +1,111 @@
+{
+	"name": "Stage1DemoPipeline",
+	"properties": {
+		"activities": [
+			{
+				"name": "SQLToBlobStorage",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Lookup2",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [
+					{
+						"name": "Source",
+						"value": "dbo.ADDRESS"
+					},
+					{
+						"name": "Destination",
+						"value": "schemafile//"
+					}
+				],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "DelimitedTextSink",
+						"storeSettings": {
+							"type": "AzureBlobStorageWriteSettings",
+							"copyBehavior": "PreserveHierarchy"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextWriteSettings",
+							"quoteAllText": true,
+							"fileExtension": ".csv"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "GetUnmaskedDataFromSource",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableName": "@item(0.name"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "SchemaFile",
+						"type": "DatasetReference"
+					}
+				]
+			},
+			{
+				"name": "Lookup2",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'dbo'",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "GetUnmaskedDataFromSource",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableName": "@item().name"
+						}
+					},
+					"firstRowOnly": false
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2022-09-17T09:16:48Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

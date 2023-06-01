@@ -1,0 +1,375 @@
+{
+	"name": "pipeline1",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get List of all tables",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT TABLE_SCHEMA,TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'dbo'",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "GetUnmaskedDataFromSource",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableName": "@item().name"
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ForEach1",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get List of all tables",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get List of all tables').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Copy data1",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderQuery": {
+										"value": "SELECT * FROM [@{item().TABLE_SCHEMA}].[@{item().TABLE_NAME}];",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "DelimitedTextSink",
+									"storeSettings": {
+										"type": "AzureFileStorageWriteSettings"
+									},
+									"formatSettings": {
+										"type": "DelimitedTextWriteSettings",
+										"quoteAllText": true,
+										"fileExtension": ".txt"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "GetUnmaskedDataFromSource",
+									"type": "DatasetReference",
+									"parameters": {
+										"TableName": "@item().name"
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "Connect_to_File_share_Dataset",
+									"type": "DatasetReference",
+									"parameters": {
+										"DirectoryName": "source",
+										"FileName": "@{item().TABLE_SCHEMA}.@{item().TABLE_NAME}.csv"
+									}
+								}
+							]
+						},
+						{
+							"name": "Copy data2",
+							"type": "Copy",
+							"dependsOn": [
+								{
+									"activity": "Copy data1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderQuery": {
+										"value": "SELECT TOP 1 * FROM [@{item().TABLE_SCHEMA}].[@{item().TABLE_NAME}];",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "DelimitedTextSink",
+									"storeSettings": {
+										"type": "AzureFileStorageWriteSettings"
+									},
+									"formatSettings": {
+										"type": "DelimitedTextWriteSettings",
+										"quoteAllText": true,
+										"fileExtension": ".txt"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "GetUnmaskedDataFromSource",
+									"type": "DatasetReference",
+									"parameters": {
+										"TableName": "@item().name"
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "Connect_to_File_share_Dataset",
+									"type": "DatasetReference",
+									"parameters": {
+										"DirectoryName": "Target",
+										"FileName": "@{item().TABLE_SCHEMA}.@{item().TABLE_NAME}.csv"
+									}
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				"name": "Delphix Login",
+				"description": "API login to Delphix Compliance Engine",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "ForEach1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": "http://40.83.7.43/masking/api/v5.1.11/login",
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					},
+					"body": {
+						"username": "admin",
+						"password": "Admin-12"
+					}
+				}
+			},
+			{
+				"name": "Trigger Masking Job",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Delphix Login",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": "http://40.83.7.43/masking/api/v5.1.11/executions",
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/json",
+						"Accept": "application/json",
+						"Authorization": {
+							"value": "@{activity('Delphix Login').output.Authorization}",
+							"type": "Expression"
+						}
+					},
+					"body": {
+						"jobId": 17
+					}
+				}
+			},
+			{
+				"name": "Check masking job",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Trigger Masking Job",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://40.83.7.43/masking/api/v5.1.11/executions/', activity('Trigger Masking Job').output.executionId)",
+						"type": "Expression"
+					},
+					"method": "GET",
+					"headers": {
+						"Content-Type": "application/json",
+						"Accept": "application/json",
+						"Authorization": {
+							"value": "@{activity('Delphix Login').output.Authorization}",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Polling",
+				"type": "Until",
+				"dependsOn": [
+					{
+						"activity": "Check masking job",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@or(equals(activity('Check masking job in polling').output.status, 'SUCCEEDED'), equals(activity('Check masking job in polling').output.status, 'FAILED'))",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Status Polling",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Check masking job in polling",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "status",
+								"value": {
+									"value": "@activity('Check masking job in polling').output.status",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Check masking job in polling",
+							"type": "WebActivity",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"url": {
+									"value": "@concat('http://40.83.7.43/masking/api/v5.1.11/executions/', activity('Trigger Masking Job').output.executionId)",
+									"type": "Expression"
+								},
+								"method": "GET",
+								"headers": {
+									"Content-Type": "application/json",
+									"Accept": "application/json",
+									"Authorization": {
+										"value": "@{activity('Delphix Login').output.Authorization}",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					],
+					"timeout": "0.12:00:00"
+				}
+			}
+		],
+		"variables": {
+			"status": {
+				"type": "String",
+				"defaultValue": "RUNNING"
+			}
+		},
+		"folder": {
+			"name": "Integrated"
+		},
+		"annotations": [],
+		"lastPublishTime": "2022-09-17T09:16:48Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

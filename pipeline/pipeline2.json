@@ -1,0 +1,185 @@
+{
+	"name": "pipeline2",
+	"properties": {
+		"activities": [
+			{
+				"name": "Trigger Masking Job",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Delphix Login",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": "http://40.83.7.43/masking/api/v5.1.11/executions",
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/json",
+						"Accept": "application/json",
+						"Authorization": {
+							"value": "@{activity('Delphix Login').output.Authorization}",
+							"type": "Expression"
+						}
+					},
+					"body": {
+						"jobId": 17
+					}
+				}
+			},
+			{
+				"name": "Delphix Login",
+				"description": "API login to Delphix Compliance Engine",
+				"type": "WebActivity",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": "http://40.83.7.43/masking/api/v5.1.11/login",
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					},
+					"body": {
+						"username": "admin",
+						"password": "Admin-12"
+					}
+				}
+			},
+			{
+				"name": "Check masking job",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Trigger Masking Job",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://40.83.7.43/masking/api/v5.1.11/executions/', activity('Trigger Masking Job').output.executionId)",
+						"type": "Expression"
+					},
+					"method": "GET",
+					"headers": {
+						"Content-Type": "application/json",
+						"Accept": "application/json",
+						"Authorization": {
+							"value": "@{activity('Delphix Login').output.Authorization}",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Polling",
+				"type": "Until",
+				"dependsOn": [
+					{
+						"activity": "Check masking job",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@or(equals(activity('Check masking job in polling').output.status, 'SUCCEEDED'), equals(activity('Check masking job in polling').output.status, 'FAILED'))",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Status Polling",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Check masking job in polling",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "status",
+								"value": {
+									"value": "@activity('Check masking job in polling').output.status",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Check masking job in polling",
+							"type": "WebActivity",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"url": {
+									"value": "@concat('http://40.83.7.43/masking/api/v5.1.11/executions/', activity('Trigger Masking Job').output.executionId)",
+									"type": "Expression"
+								},
+								"method": "GET",
+								"headers": {
+									"Content-Type": "application/json",
+									"Accept": "application/json",
+									"Authorization": {
+										"value": "@{activity('Delphix Login').output.Authorization}",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					],
+					"timeout": "0.12:00:00"
+				}
+			}
+		],
+		"variables": {
+			"status": {
+				"type": "String",
+				"defaultValue": "RUNNING"
+			}
+		},
+		"folder": {
+			"name": "HUBS-Test-Uddi"
+		},
+		"annotations": [],
+		"lastPublishTime": "2022-09-16T12:13:00Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

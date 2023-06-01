@@ -1,0 +1,26 @@
+{
+	"name": "Connect_to_storage",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "Connect_to_stroage",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "Ankit"
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"fileName": "ADDRESS_schema1.csv",
+				"container": "maskeddata"
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"quoteChar": "\""
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

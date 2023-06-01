@@ -1,0 +1,43 @@
+{
+	"name": "ConnectToSynapseDataset",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ConnectingSynapse",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"tableName": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlDWTable",
+		"schema": [
+			{
+				"name": "NAME",
+				"type": "varchar"
+			},
+			{
+				"name": "LAST_NAME",
+				"type": "varchar"
+			},
+			{
+				"name": "AGE",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "GENDER",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": {
+				"value": "@split(dataset().tableName,'.')[1]",
+				"type": "Expression"
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}
