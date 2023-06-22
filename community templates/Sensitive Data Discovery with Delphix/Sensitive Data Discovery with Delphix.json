@@ -204,6 +204,7 @@
                     }
                   },
                   "inputs": [
+
                     {
                       "referenceName": "ConnectToSourceData",
                       "type": "DatasetReference",
@@ -427,10 +428,12 @@
                   "type": "WebActivity",
                   "dependsOn": [
                     {
+
                       "activity": "Get fileformat File Data",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
+ 
                     },
                     {
                       "activity": "AppendFileName with PipelineRunID",
@@ -1211,6 +1214,7 @@
                 "FileShareName": {
                   "value": "@pipeline().parameters.FileShareName",
                   "type": "Expression"
+
                 },
                 "ApplicationName": {
                   "value": "@pipeline().parameters.ApplicationName",
@@ -2881,6 +2885,7 @@
             "type": "string"
           }
         },
+
         "variables": {
           "Output": {
             "type": "String"

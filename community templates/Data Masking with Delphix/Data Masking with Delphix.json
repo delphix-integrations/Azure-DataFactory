@@ -9,6 +9,7 @@
     "FileshareLinkedService": {
       "type": "string"
     },
+
     "StorageaccLinkedService": {
       "type": "string"
     },
@@ -94,6 +95,7 @@
                     "pipeline": {
                       "referenceName": "Invoke atomic masking job",
                       "type": "PipelineReference"
+ 
                     },
                     "waitOnCompletion": true,
                     "parameters": {
@@ -321,6 +323,7 @@
                         "FileName": "@item().name"
                       }
                     }
+
                   ],
                   "outputs": [
                     {
@@ -334,6 +337,7 @@
                         "directoryName": "maskeddata",
                         "fileName": "@item().name"
                       }
+
                     }
                   ]
                 },
@@ -462,6 +466,7 @@
                       "recursive": true,
                       "enablePartitionDiscovery": false
                     }
+
                   }
                 }
               ]
@@ -516,6 +521,7 @@
                       "formatSettings": {
                         "type": "DelimitedTextReadSettings"
                       }
+
                     },
                     "sink": {
                       "type": "DelimitedTextSink",
@@ -899,10 +905,12 @@
                   "type": "SetVariable",
                   "dependsOn": [
                     {
+
                       "activity": "Check masking job in polling",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
+
                     }
                   ],
                   "policy": {
@@ -986,6 +994,7 @@
                     "value": {
                       "value": "@concat('Job: ', activity('Check masking job in polling').output.jobId, ' succeeded')",
                       "type": "Expression"
+
                     }
                   }
                 }
@@ -1225,6 +1234,7 @@
                 "sqlReaderQuery": {
                   "value": "@pipeline().parameters.QueryToFetchTables",
                   "type": "Expression"
+
                 },
                 "queryTimeout": "02:00:00",
                 "partitionOption": "None"
