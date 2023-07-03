@@ -685,48 +685,32 @@
 		],
 		"parameters": {
 			"Joblist": {
-				"type": "array",
-				"defaultValue": [
-					3
-				]
+				"type": "array"
 			},
 			"VaultURLForUsername": {
-				"type": "securestring",
-				"defaultValue": {
-					"type": "SecureString",
-					"value": "**********"
-				}
+				"type": "securestring"
 			},
 			"VaultURLForPassword": {
-				"type": "securestring",
-				"defaultValue": {
-					"type": "SecureString",
-					"value": "**********"
-				}
+				"type": "securestring"
 			},
 			"MaskingEngineIP": {
-				"type": "string",
-				"defaultValue": "172.190.134.47"
+				"type": "string"
 			},
 			"QueryToFetchTables": {
-				"type": "string",
-				"defaultValue": "SELECT TABLE_SCHEMA,TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'abccorp'"
+				"type": "string"
 			},
 			"TargetSchemaName": {
-				"type": "string",
-				"defaultValue": "targetabccorp"
+				"type": "string"
 			},
 			"ExtractData": {
 				"type": "bool",
 				"defaultValue": true
 			},
 			"FileSharerootFolder": {
-				"type": "string",
-				"defaultValue": "akshayfileshare"
+				"type": "string"
 			},
 			"ContainerRootFolder": {
-				"type": "string",
-				"defaultValue": "akshaycontainer"
+				"type": "string"
 			}
 		},
 		"variables": {
