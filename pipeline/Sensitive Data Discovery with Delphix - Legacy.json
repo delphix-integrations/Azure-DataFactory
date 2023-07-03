@@ -1463,60 +1463,37 @@
 		],
 		"parameters": {
 			"VaultURLForUsername": {
-				"type": "securestring",
-				"defaultValue": {
-					"type": "SecureString",
-					"value": "**********"
-				}
+				"type": "securestring"
 			},
 			"VaultURLForPassword": {
-				"type": "securestring",
-				"defaultValue": {
-					"type": "SecureString",
-					"value": "**********"
-				}
+				"type": "securestring"
 			},
 			"MaskingEngineIP": {
-				"type": "string",
-				"defaultValue": "172.190.134.47"
+				"type": "string"
 			},
 			"LogicappURL": {
-				"type": "string",
-				"defaultValue": "prod-06.centralus.logic.azure.com:443/workflows/d03b51a68e0c4fe88434c6ab1eedc207/triggers/manual/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=uifJwRyf0HQ9j_Y5JNOjFVmkiL0oRIcFD_MxHMKHNXw"
+				"type": "string"
 			},
 			"QueryToGetTableSchema": {
-				"type": "string",
-				"defaultValue": "SELECT TABLE_SCHEMA,TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'abccorp'"
+				"type": "string"
 			},
 			"FileShareUserName": {
-				"type": "securestring",
-				"defaultValue": {
-					"type": "SecureString",
-					"value": "**********"
-				}
+				"type": "securestring"
 			},
 			"FileSharePassword": {
-				"type": "securestring",
-				"defaultValue": {
-					"type": "SecureString",
-					"value": "**********"
-				}
+				"type": "securestring"
 			},
 			"FileShareMountPointName": {
-				"type": "string",
-				"defaultValue": "filesharemountpoint"
+				"type": "string"
 			},
 			"FileShareUrl": {
-				"type": "string",
-				"defaultValue": "akshaystorageacc.blob.core.windows.net"
+				"type": "string"
 			},
 			"FileShareName": {
-				"type": "string",
-				"defaultValue": "akshayfileshare"
+				"type": "string"
 			},
 			"ApplicationName": {
-				"type": "string",
-				"defaultValue": "demoapp"
+				"type": "string"
 			},
 			"SourceEnvironmentName": {
 				"type": "string",
@@ -1543,12 +1520,10 @@
 				"defaultValue": "TargetRuleset"
 			},
 			"ContainerRootFolder": {
-				"type": "string",
-				"defaultValue": "akshaycontainer"
+				"type": "string"
 			},
 			"FileShareRootFolder": {
-				"type": "string",
-				"defaultValue": "akshayfileshare"
+				"type": "string"
 			}
 		},
 		"variables": {
