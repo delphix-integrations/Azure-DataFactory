@@ -1,0 +1,1163 @@
+{
+	"name": "Setup Source Connector and Ruleset",
+	"properties": {
+		"activities": [
+			{
+				"name": "Mount File share",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Get fileshare Password",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": true,
+					"secureInput": true
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/mount-filesystem')",
+						"type": "Expression"
+					},
+					"method": "POST",
+					"headers": {
+						"Authorization": {
+							"value": "@pipeline().parameters.AuthKey",
+							"type": "Expression"
+						},
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					},
+					"body": {
+						"value": "{\"mountName\":\"@{pipeline().parameters.FileShareMountPointName}\",\n\"hostAddress\":\"@{pipeline().parameters.FileShareUrl}\",\n\"mountPath\":\"/@{pipeline().parameters.FileShareName}\",\n\"type\":\"CIFS\",\n\"options\":\"username=@{activity('Get fileshare User').output.value},password=@{activity('Get fileshare Password').output.value}\",\n\"connectOnStartup\":true}",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Activate File share Mount Point",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Set mountId",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/mount-filesystem/',activity('Mount File share').output.mountId,'/connect')",
+						"type": "Expression"
+					},
+					"method": "PUT",
+					"headers": {
+						"Authorization": {
+							"value": "@pipeline().parameters.AuthKey",
+							"type": "Expression"
+						},
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					}
+				}
+			},
+			{
+				"name": "Create Application",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Wait for mount",
+						"dependencyConditions": [
+							"Skipped"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/applications')",
+						"type": "Expression"
+					},
+					"method": "POST",
+					"headers": {
+						"Authorization": {
+							"value": "@pipeline().parameters.AuthKey",
+							"type": "Expression"
+						},
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					},
+					"body": {
+						"value": "{\"applicationName\":\"@{pipeline().parameters.ApplicationName}\"}",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Create Source Environment",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Wait for application",
+						"dependencyConditions": [
+							"Skipped"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/environments')",
+						"type": "Expression"
+					},
+					"method": "POST",
+					"headers": {
+						"Authorization": {
+							"value": "@pipeline().parameters.AuthKey",
+							"type": "Expression"
+						},
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					},
+					"body": {
+						"value": "{\n  \"environmentName\": \"@{pipeline().parameters.SourceEnvironmentName}\",\n  \"applicationId\": \"@{variables('applicationId')}\",\n  \"purpose\": \"MASK\"\n}",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Create Source Connector",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Wait for sourceID",
+						"dependencyConditions": [
+							"Skipped"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/file-connectors')",
+						"type": "Expression"
+					},
+					"method": "POST",
+					"headers": {
+						"Authorization": {
+							"value": "@pipeline().parameters.AuthKey",
+							"type": "Expression"
+						},
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					},
+					"body": {
+						"value": "{\n  \"connectorName\": \"@{pipeline().parameters.SourceConnectorName}\",\n  \"environmentId\": \"@{variables('sourceEnvironmentId')}\",\n  \"fileType\": \"DELIMITED\",\n  \"connectionInfo\": {\n    \"connectionMode\": \"MOUNT\",\n    \"path\": \"@{pipeline().parameters.RootFolder}/Source\",\n    \"mountId\": \" @{variables('mountId')}\",\n    \"userDirIsRoot\": false\n  }\n}",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Get Application Name",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Create Application",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/applications')",
+						"type": "Expression"
+					},
+					"method": "GET",
+					"headers": {
+						"Authorization": {
+							"value": "@pipeline().parameters.AuthKey",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "ForEach Application",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get Application Name",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get Application Name').output.responseList",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "If Condition Application",
+							"type": "IfCondition",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@contains(string(item()),pipeline().parameters.ApplicationName)",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Set variable application",
+										"type": "SetVariable",
+										"dependsOn": [],
+										"policy": {
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "applicationId",
+											"value": {
+												"value": "@string(item().applicationId)",
+												"type": "Expression"
+											}
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Set applicationId for Application",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Create Application",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "applicationId",
+					"value": {
+						"value": "@string(activity('Create Application').output.applicationId)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Get Source Environment Id",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Create Source Environment",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/environments?application_id=',variables('applicationId'))",
+						"type": "Expression"
+					},
+					"method": "GET",
+					"headers": {
+						"Authorization": {
+							"value": "@pipeline().parameters.AuthKey",
+							"type": "Expression"
+						},
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					},
+					"body": {
+						"value": "{\"applicationName\":\"@{pipeline().parameters.ApplicationName}\"}",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "ForEach Source",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get Source Environment Id",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get Source Environment Id').output.responseList",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "If Condition SourceEnv",
+							"type": "IfCondition",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(string(item().environmentName),pipeline().parameters.SourceEnvironmentName)",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Set variable SourceEnv",
+										"type": "SetVariable",
+										"dependsOn": [],
+										"policy": {
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "sourceEnvironmentId",
+											"value": {
+												"value": "@string(item().environmentId)",
+												"type": "Expression"
+											}
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Set source Environment Id",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Create Source Environment",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "sourceEnvironmentId",
+					"value": {
+						"value": "@string(activity('Create Source Environment').output.environmentId)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Get Mount File System",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Mount File share",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/mount-filesystem')",
+						"type": "Expression"
+					},
+					"method": "GET",
+					"headers": {
+						"Authorization": {
+							"value": "@pipeline().parameters.AuthKey",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "ForEach file mount",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get Mount File System",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get Mount File System').output.responseList",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "If mount created",
+							"type": "IfCondition",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(string(item().mountName),pipeline().parameters.FileShareMountPointName)",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Set mount Id",
+										"type": "SetVariable",
+										"dependsOn": [],
+										"policy": {
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "mountId",
+											"value": {
+												"value": "@string(item().mountId)",
+												"type": "Expression"
+											}
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Set mountId",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Mount File share",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "mountId",
+					"value": {
+						"value": "@string(activity('Mount File share').output.mountId)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Wait for sourceID",
+				"type": "Wait",
+				"dependsOn": [
+					{
+						"activity": "ForEach Source",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set source Environment Id",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"waitTimeInSeconds": 1
+				}
+			},
+			{
+				"name": "Edit Source Connector",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "ForEach Source Connector",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/file-connectors/',variables('sourceConnectorId'))",
+						"type": "Expression"
+					},
+					"method": "PUT",
+					"headers": {
+						"Authorization": {
+							"value": "@pipeline().parameters.AuthKey",
+							"type": "Expression"
+						},
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					},
+					"body": {
+						"value": "{\n  \"connectorName\": \"@{pipeline().parameters.SourceConnectorName}\",\n  \"environmentId\": \"@{variables('sourceEnvironmentId')}\",\n  \"fileType\": \"DELIMITED\",\n  \"connectionInfo\": {\n    \"connectionMode\": \"MOUNT\",\n    \"path\": \"@{pipeline().parameters.RootFolder}/Source\",\n    \"mountId\": \" @{variables('mountId')}\",\n    \"userDirIsRoot\": false\n  }\n}",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Get Source Connector Id",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Create Source Connector",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/file-connectors')",
+						"type": "Expression"
+					},
+					"method": "GET",
+					"headers": {
+						"Authorization": {
+							"value": "@pipeline().parameters.AuthKey",
+							"type": "Expression"
+						},
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					},
+					"body": {
+						"value": "{\"applicationName\":\"@{pipeline().parameters.ApplicationName}\"}",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "ForEach Source Connector",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get Source Connector Id",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get Source Connector Id').output.responseList",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "If Condition for Souce Conector",
+							"type": "IfCondition",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@contains(string(item()),pipeline().parameters.SourceConnectorName)",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Set source Connector",
+										"type": "SetVariable",
+										"dependsOn": [],
+										"policy": {
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "sourceConnectorId",
+											"value": {
+												"value": "@string(item().fileConnectorId)",
+												"type": "Expression"
+											}
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Set Source Connector Id",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Create Source Connector",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "sourceConnectorId",
+					"value": {
+						"value": "@string(activity('Create Source Connector').output.fileConnectorId)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Create Taget Connector",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Wait for application",
+						"dependencyConditions": [
+							"Skipped"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Setup Target Connector and Ruleset",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"MaskingEngineIP": {
+							"value": "@pipeline().parameters.MaskingEngineIP",
+							"type": "Expression"
+						},
+						"AuthKey": {
+							"value": "@pipeline().parameters.AuthKey",
+							"type": "Expression"
+						},
+						"TargetEnvironmentName": {
+							"value": "@pipeline().parameters.TargetEnvironmentName",
+							"type": "Expression"
+						},
+						"TargetConnectorName": {
+							"value": "@pipeline().parameters.TargetConnectorName",
+							"type": "Expression"
+						},
+						"TargetRulesetName": {
+							"value": "@pipeline().parameters.TargetRulesetName",
+							"type": "Expression"
+						},
+						"applicationId": {
+							"value": "@variables('applicationId')",
+							"type": "Expression"
+						},
+						"mountId": {
+							"value": "@variables('mountId')",
+							"type": "Expression"
+						},
+						"ApplicationName": {
+							"value": "@pipeline().parameters.ApplicationName",
+							"type": "Expression"
+						},
+						"RootFolder": {
+							"value": "@pipeline().parameters.RootFolder",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Wait for mount",
+				"type": "Wait",
+				"dependsOn": [
+					{
+						"activity": "Activate File share Mount Point",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "ForEach file mount",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"waitTimeInSeconds": 1
+				}
+			},
+			{
+				"name": "Wait for application",
+				"type": "Wait",
+				"dependsOn": [
+					{
+						"activity": "Set applicationId for Application",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "ForEach Application",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"waitTimeInSeconds": 1
+				}
+			},
+			{
+				"name": "Wait for source Connector",
+				"type": "Wait",
+				"dependsOn": [
+					{
+						"activity": "Set Source Connector Id",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Edit Source Connector",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"waitTimeInSeconds": 1
+				}
+			},
+			{
+				"name": "Get Source RuleSet",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Wait for source Connector",
+						"dependencyConditions": [
+							"Skipped"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/file-rulesets')",
+						"type": "Expression"
+					},
+					"method": "GET",
+					"headers": {
+						"Authorization": {
+							"value": "@pipeline().parameters.AuthKey",
+							"type": "Expression"
+						},
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					}
+				}
+			},
+			{
+				"name": "ForEach Source Ruleset",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get Source RuleSet",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get Source RuleSet').output.responseList",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "If Condition for Souce Ruleset",
+							"type": "IfCondition",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(string(item().rulesetName),pipeline().parameters.SourceRulesetName)",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Set sourceRuleset",
+										"type": "SetVariable",
+										"dependsOn": [],
+										"policy": {
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "sourceRuleset",
+											"value": true
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Check if ruleset was created",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "ForEach Source Ruleset",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(variables('sourceRuleset'),true)",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Create Source RuleSet",
+							"type": "WebActivity",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"url": {
+									"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/file-rulesets')",
+									"type": "Expression"
+								},
+								"method": "POST",
+								"headers": {
+									"Authorization": {
+										"value": "@pipeline().parameters.AuthKey",
+										"type": "Expression"
+									},
+									"Content-Type": "application/json",
+									"Accept": "application/json"
+								},
+								"body": {
+									"value": "{\n  \"rulesetName\": \"@{pipeline().parameters.SourceRulesetName}\",\n  \"fileConnectorId\": @{variables('sourceConnectorId')}\n}",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Set targetSetup",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Create Taget Connector",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "targetSetup",
+					"value": "hello"
+				}
+			},
+			{
+				"name": "Get fileshare User",
+				"description": "This web activity gets the Compliance engine username from the Key Vault.",
+				"type": "WebActivity",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": true,
+					"secureInput": true
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@pipeline().parameters.FileShareUserName",
+						"type": "Expression"
+					},
+					"method": "GET",
+					"authentication": {
+						"type": "MSI",
+						"resource": "https://vault.azure.net"
+					}
+				}
+			},
+			{
+				"name": "Get fileshare Password",
+				"description": "This web activity gets the Compliance engine Password from the Key Vault.",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Get fileshare User",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": true,
+					"secureInput": true
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@pipeline().parameters.FileSharePassword",
+						"type": "Expression"
+					},
+					"method": "GET",
+					"authentication": {
+						"type": "MSI",
+						"resource": "https://vault.azure.net"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"FileShareUserName": {
+				"type": "securestring"
+			},
+			"FileSharePassword": {
+				"type": "securestring"
+			},
+			"FileShareMountPointName": {
+				"type": "string"
+			},
+			"FileShareUrl": {
+				"type": "string"
+			},
+			"FileShareName": {
+				"type": "string"
+			},
+			"ApplicationName": {
+				"type": "string"
+			},
+			"MaskingEngineIP": {
+				"type": "string"
+			},
+			"AuthKey": {
+				"type": "string"
+			},
+			"SourceEnvironmentName": {
+				"type": "string"
+			},
+			"TargetEnvironmentName": {
+				"type": "string"
+			},
+			"SourceConnectorName": {
+				"type": "string"
+			},
+			"TargetConnectorName": {
+				"type": "string"
+			},
+			"SourceRulesetName": {
+				"type": "string"
+			},
+			"TargetRulesetName": {
+				"type": "string"
+			},
+			"RootFolder": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"Output": {
+				"type": "String"
+			},
+			"appId": {
+				"type": "String"
+			},
+			"final": {
+				"type": "String"
+			},
+			"applicationId": {
+				"type": "String"
+			},
+			"sourceEnvironmentId": {
+				"type": "String"
+			},
+			"mountId": {
+				"type": "String"
+			},
+			"sourceConnectorId": {
+				"type": "String"
+			},
+			"sourceRuleset": {
+				"type": "Boolean"
+			},
+			"targetRuleset": {
+				"type": "Boolean"
+			},
+			"sourceSetup": {
+				"type": "Boolean"
+			},
+			"maskingSetupSuccess": {
+				"type": "Boolean"
+			},
+			"Execution": {
+				"type": "Boolean"
+			},
+			"uploadStatus": {
+				"type": "String"
+			},
+			"targetSetup": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "Delphix Continous Compliance"
+		},
+		"annotations": [],
+		"lastPublishTime": "2023-07-03T09:33:52Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

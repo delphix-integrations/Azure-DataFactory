@@ -1,0 +1,593 @@
+{
+	"name": "Setup Target Connector and Ruleset",
+	"properties": {
+		"activities": [
+			{
+				"name": "Create Target Environment",
+				"type": "WebActivity",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/environments')",
+						"type": "Expression"
+					},
+					"method": "POST",
+					"headers": {
+						"Authorization": {
+							"value": "@pipeline().parameters.AuthKey",
+							"type": "Expression"
+						},
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					},
+					"body": {
+						"value": "{\n  \"environmentName\": \"@{pipeline().parameters.TargetEnvironmentName}\",\n  \"applicationId\": \"@{pipeline().parameters.applicationId}\",\n  \"purpose\": \"MASK\"\n}",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Create Target Connector",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Wait for targetId",
+						"dependencyConditions": [
+							"Skipped"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/file-connectors')",
+						"type": "Expression"
+					},
+					"method": "POST",
+					"headers": {
+						"Authorization": {
+							"value": "@pipeline().parameters.AuthKey",
+							"type": "Expression"
+						},
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					},
+					"body": {
+						"value": "{\n  \"connectorName\": \"@{pipeline().parameters.TargetConnectorName}\",\n  \"environmentId\": \"@{variables('targetEnvironmentId')}\",\n  \"fileType\": \"DELIMITED\",\n  \"connectionInfo\": {\n    \"connectionMode\": \"MOUNT\",\n    \"path\": \"@{pipeline().parameters.RootFolder}/Target\",\n    \"mountId\": \" @{pipeline().parameters.mountId}\",\n    \"userDirIsRoot\": false\n  }\n}",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Get Target Environment Id",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Create Target Environment",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/environments?application_id=',pipeline().parameters.applicationId)",
+						"type": "Expression"
+					},
+					"method": "GET",
+					"headers": {
+						"Authorization": {
+							"value": "@pipeline().parameters.AuthKey",
+							"type": "Expression"
+						},
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					},
+					"body": {
+						"value": "{\"applicationName\":\"@{pipeline().parameters.ApplicationName}\"}",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "ForEach Target",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get Target Environment Id",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get Target Environment Id').output.responseList",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "If Condition for Target Env",
+							"type": "IfCondition",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(string(item().environmentName),pipeline().parameters.TargetEnvironmentName)",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Set targetEnvVariable",
+										"type": "SetVariable",
+										"dependsOn": [],
+										"policy": {
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "targetEnvironmentId",
+											"value": {
+												"value": "@string(item().environmentId)",
+												"type": "Expression"
+											}
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Set Target Environment Id",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Create Target Environment",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "targetEnvironmentId",
+					"value": {
+						"value": "@string(activity('Create Target Environment').output.environmentId)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Wait for targetId",
+				"type": "Wait",
+				"dependsOn": [
+					{
+						"activity": "ForEach Target",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set Target Environment Id",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"waitTimeInSeconds": 1
+				}
+			},
+			{
+				"name": "Edit Target Connector",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "ForEach Target Connector",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/file-connectors/',variables('targetConnectorId'))",
+						"type": "Expression"
+					},
+					"method": "PUT",
+					"headers": {
+						"Authorization": {
+							"value": "@pipeline().parameters.AuthKey",
+							"type": "Expression"
+						},
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					},
+					"body": {
+						"value": "{\n  \"connectorName\": \"@{pipeline().parameters.TargetConnectorName}\",\n  \"environmentId\": \"@{variables('targetEnvironmentId')}\",\n  \"fileType\": \"DELIMITED\",\n  \"connectionInfo\": {\n    \"connectionMode\": \"MOUNT\",\n    \"path\": \"@{pipeline().parameters.RootFolder}/Target\",\n    \"mountId\": \" @{pipeline().parameters.mountId}\",\n    \"userDirIsRoot\": false\n  }\n}",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Get Target Connector Id",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Create Target Connector",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/file-connectors')",
+						"type": "Expression"
+					},
+					"method": "GET",
+					"headers": {
+						"Authorization": {
+							"value": "@pipeline().parameters.AuthKey",
+							"type": "Expression"
+						},
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					},
+					"body": {
+						"value": "{\"applicationName\":\"@{pipeline().parameters.ApplicationName}\"}",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "ForEach Target Connector",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get Target Connector Id",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get Target Connector Id').output.responseList",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "If Condition for Target Conector",
+							"type": "IfCondition",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@contains(string(item()),pipeline().parameters.TargetConnectorName)",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Set target Connector",
+										"type": "SetVariable",
+										"dependsOn": [],
+										"policy": {
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "targetConnectorId",
+											"value": {
+												"value": "@string(item().fileConnectorId)",
+												"type": "Expression"
+											}
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Set Target Connector Id",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Create Target Connector",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "targetConnectorId",
+					"value": {
+						"value": "@string(activity('Create Target Connector').output.fileConnectorId)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Wait for targetConnector",
+				"type": "Wait",
+				"dependsOn": [
+					{
+						"activity": "Edit Target Connector",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set Target Connector Id",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"waitTimeInSeconds": 1
+				}
+			},
+			{
+				"name": "Get Target RuleSet",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Wait for targetConnector",
+						"dependencyConditions": [
+							"Skipped"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/file-rulesets')",
+						"type": "Expression"
+					},
+					"method": "GET",
+					"headers": {
+						"Authorization": {
+							"value": "@pipeline().parameters.AuthKey",
+							"type": "Expression"
+						},
+						"Content-Type": "application/json",
+						"Accept": "application/json"
+					}
+				}
+			},
+			{
+				"name": "ForEach Target Ruleset",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get Target RuleSet",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get Target RuleSet').output.responseList",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "If Condition for Target Ruleset",
+							"type": "IfCondition",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(string(item().rulesetName),pipeline().parameters.TargetRulesetName)",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Set target Ruleset",
+										"type": "SetVariable",
+										"dependsOn": [],
+										"policy": {
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "targetRuleset",
+											"value": true
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Check if target ruleset was created",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "ForEach Target Ruleset",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(variables('targetRuleset'),true)",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Create Target RuleSet",
+							"type": "WebActivity",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"url": {
+									"value": "@concat('http://',pipeline().parameters.MaskingEngineIP,'/masking/api/v5.1.11/file-rulesets')",
+									"type": "Expression"
+								},
+								"method": "POST",
+								"headers": {
+									"Authorization": {
+										"value": "@pipeline().parameters.AuthKey",
+										"type": "Expression"
+									},
+									"Content-Type": "application/json",
+									"Accept": "application/json"
+								},
+								"body": {
+									"value": "{\n  \"rulesetName\": \"@{pipeline().parameters.TargetRulesetName}\",\n  \"fileConnectorId\": @{variables('targetConnectorId')}\n}",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"MaskingEngineIP": {
+				"type": "string"
+			},
+			"AuthKey": {
+				"type": "string"
+			},
+			"TargetEnvironmentName": {
+				"type": "string"
+			},
+			"TargetConnectorName": {
+				"type": "string"
+			},
+			"TargetRulesetName": {
+				"type": "string"
+			},
+			"applicationId": {
+				"type": "string"
+			},
+			"mountId": {
+				"type": "string"
+			},
+			"ApplicationName": {
+				"type": "string"
+			},
+			"RootFolder": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"targetEnvironmentId": {
+				"type": "String"
+			},
+			"targetConnectorId": {
+				"type": "String"
+			},
+			"sourceRuleset": {
+				"type": "Boolean"
+			},
+			"targetRuleset": {
+				"type": "Boolean"
+			},
+			"uploadStatus": {
+				"type": "String"
+			},
+			"targetSetup": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "Delphix Continous Compliance"
+		},
+		"annotations": [],
+		"lastPublishTime": "2023-07-03T09:33:51Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}
